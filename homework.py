@@ -25,6 +25,7 @@ TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 RETRY_PERIOD = 600
+START_PERIOD = 0
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 TELEGRAM_ENDPOINT = (f'https://api.telegram.org/'
                      f'bot{TELEGRAM_TOKEN}/getChat?chat_id={TELEGRAM_CHAT_ID}')
@@ -38,8 +39,10 @@ HOMEWORK_VERDICTS = {
 
 
 def check_tokens():
-    """Check tokens for Yandex Practicum API,
-    Telegram Bot API and Telegram Chat ID"""
+    """
+    Check tokens for Yandex Practicum API,
+    Telegram Bot API and Telegram Chat ID.
+    """
     token_names = ['PRACTICUM TOKEN', 'TELEGRAM CHAT ID', 'TELEGRAM TOKEN']
     tokens = [PRACTICUM_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_TOKEN]
     for token_name, token in zip(token_names, tokens):
@@ -51,7 +54,7 @@ def check_tokens():
 
 
 def send_message(bot, message):
-    """Send  textmessage from bot to chat TELEGRAM_CHAT_ID"""
+    """Send  textmessage from bot to chat TELEGRAM_CHAT_ID."""
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
         logger.debug('Message sent.')
@@ -70,8 +73,10 @@ def check_telegram_chat(bot):
 
 
 def get_api_answer(timestamp):
-    """Get answer from Practicum API using token PRACTICUM_TOKEN
-    to check new homeworks statues since timestamp."""
+    """
+    Get answer from Practicum API using token PRACTICUM_TOKEN
+    to check new homeworks statues since timestamp.
+    """
     headers = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
     payload = {'from_date': int(timestamp)}
     try:
@@ -109,7 +114,7 @@ def check_response(response):
     if not isinstance(hw, list):
         raise TypeError
     if len(hw) == 0:
-        logger.debug('No new statuses.')
+        # logger.debug('No new statuses.')
         return True
     if all(key in hw[0] for key in [
         # 'date_updated',
@@ -141,7 +146,6 @@ def parse_status(homework):
 
 class TelegramHandler(logging.StreamHandler):
     """Handler to send logger messages to the telegram chatbot."""
-    last_error = ''
 
     def __init__(self, bot) -> None:
         """"""
@@ -149,21 +153,19 @@ class TelegramHandler(logging.StreamHandler):
         self.bot = bot
 
     def emit(self, record):
-        """Congfigure sending message for Telegram Handler"""
+        """Congfigure sending message for Telegram Handler."""
         log_entry = self.format(record)
-        if log_entry != TelegramHandler.last_error:
-            TelegramHandler.last_error = log_entry
-            try:
-                # send_message(self.bot, log_entry)
-                # этот вариант не проходит тесты,
-                # поэтому вот, лучше не придумала:
-                self.bot.send_message(TELEGRAM_CHAT_ID, log_entry)
-            except Exception:
-                super().emit(log_entry)
+        try:
+            # send_message(self.bot, log_entry)
+            # этот вариант не проходит тесты,
+            # поэтому вот, лучше не придумала:
+            self.bot.send_message(TELEGRAM_CHAT_ID, log_entry)
+        except Exception:
+            super().emit(log_entry)
 
 
 def main():
-    """Main bot logic"""
+    """Main bot logic."""
     logger.setLevel(logging.DEBUG)
     stream__handler = logging.StreamHandler()
     stream__handler.setLevel(logging.DEBUG)
@@ -183,18 +185,24 @@ def main():
     tg_handler.setFormatter(formatter)
     logger.addHandler(tg_handler)
 
+    messages_log = set()
+
     while True:
         timestamp = int(time.time())
-        time_before = timestamp - RETRY_PERIOD
+        time_before = timestamp - START_PERIOD
         message = None
+        total_messages = len(messages_log)
         try:
             response = get_api_answer(time_before)
             if check_response(response):
-                if len(response.get('homeworks')) == 0:
-                    logger.debug("No new homework statuses.")
+                logger.debug(f"New statuses: {len(response.get('homeworks'))}")
                 for homework in response.get('homeworks'):
                     message = parse_status(homework)
-                    send_message(bot, message)
+                    if message not in messages_log:
+                        send_message(bot, message)
+                        messages_log.add(message)
+                if len(messages_log) == total_messages:
+                    logger.debug(f"No new homework statuses: {total_messages}")
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
             logger.error(message)
