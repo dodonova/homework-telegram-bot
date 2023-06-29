@@ -39,10 +39,7 @@ HOMEWORK_VERDICTS = {
 
 
 def check_tokens():
-    """
-    Check tokens for Yandex Practicum API,
-    Telegram Bot API and Telegram Chat ID.
-    """
+    """Check tokens for Practicum API, Telegram API and Chat ID."""
     token_names = ['PRACTICUM TOKEN', 'TELEGRAM CHAT ID', 'TELEGRAM TOKEN']
     tokens = [PRACTICUM_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_TOKEN]
     for token_name, token in zip(token_names, tokens):
@@ -73,10 +70,7 @@ def check_telegram_chat(bot):
 
 
 def get_api_answer(timestamp):
-    """
-    Get answer from Practicum API using token PRACTICUM_TOKEN
-    to check new homeworks statues since timestamp.
-    """
+    """Get answer from Practicum API."""
     headers = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
     payload = {'from_date': int(timestamp)}
     try:
@@ -146,10 +140,11 @@ def parse_status(homework):
 
 class TelegramHandler(logging.StreamHandler):
     """Handler to send logger messages to the telegram chatbot."""
+
     last_error = ''
 
     def __init__(self, bot) -> None:
-        """"""
+        """The bot object should be passed to the constructor."""
         super().__init__()
         self.bot = bot
 
