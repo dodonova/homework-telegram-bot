@@ -90,7 +90,7 @@ def get_api_answer(timestamp):
         raise requests.HTTPError()
     try:
         homework_json = homework_statuses.json()
-        logger.debug(f'Response has JSON format.')
+        logger.debug('Response has JSON format.')
         return homework_json
     except JSONDecodeError:
         logger.error('Wrong response format:  it is not JSON.')
@@ -166,8 +166,8 @@ def main():
     logger.setLevel(logging.DEBUG)
     logging.basicConfig(
         format=(
-        '\n[%(levelname)s] %(asctime)s  - '
-        '(%(filename)s).%(funcName)s:%(lineno)d. %(message)s'),
+            '\n[%(levelname)s] %(asctime)s  - '
+            '(%(filename)s).%(funcName)s:%(lineno)d. %(message)s'),
         level=logging.DEBUG,
         handlers=[logging.StreamHandler()]
     )
