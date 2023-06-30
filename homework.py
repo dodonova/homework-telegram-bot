@@ -2,11 +2,12 @@ import os
 import logging
 import requests
 import time
-from dotenv import load_dotenv
+from http import HTTPStatus
 from json.decoder import JSONDecodeError
+
+from dotenv import load_dotenv
 from telegram import Bot
 from telegram.error import TelegramError
-from http import HTTPStatus
 
 from exeptions import (
     APIResponseStructureExeption,
@@ -25,7 +26,7 @@ TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 RETRY_PERIOD = 600
-START_PERIOD = 0
+START_PERIOD = 24 * 60 * 60
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 TELEGRAM_ENDPOINT = (f'https://api.telegram.org/'
                      f'bot{TELEGRAM_TOKEN}/getChat?chat_id={TELEGRAM_CHAT_ID}')
@@ -46,7 +47,6 @@ def check_tokens():
         if token is None:
             logger.critical(f'There is no token {token_name}.')
             return False
-            # raise TokenNotFoundExeption(token_name)
     return True
 
 
@@ -54,9 +54,9 @@ def send_message(bot, message):
     """Send  textmessage from bot to chat TELEGRAM_CHAT_ID."""
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
-        logger.debug('Message sent.')
+        logger.debug(f'Message sent:"{message}"')
     except TelegramError:
-        logger.exception('Message sending error.')
+        logger.exception('Send error. Message:"{message}"')
 
 
 def check_telegram_chat(bot):
@@ -75,13 +75,13 @@ def get_api_answer(timestamp):
     payload = {'from_date': int(timestamp)}
     try:
         homework_statuses = requests.get(
-            # url='https://google.com',
             url=ENDPOINT,
             headers=headers,
             params=payload
         )
+        logger.debug('Practicum API response received')
     except Exception as error:
-        logger.error(f"Failed connection: {error}")
+        logger.error(f"Practicum API failed connection: {error}")
         return
     logger.debug(
         f"Practicum API request status code: {homework_statuses.status_code}.")
@@ -89,9 +89,11 @@ def get_api_answer(timestamp):
         logger.error('Endpoint is unavailable.')
         raise requests.HTTPError()
     try:
-        return homework_statuses.json()
+        homework_json = homework_statuses.json()
+        logger.debug(f'Response has JSON format.')
+        return homework_json
     except JSONDecodeError:
-        logger.error('Wrong response format.')
+        logger.error('Wrong response format:  it is not JSON.')
 
 
 def check_response(response):
@@ -154,9 +156,6 @@ class TelegramHandler(logging.StreamHandler):
         if TelegramHandler.last_error != log_entry:
             TelegramHandler.last_error = log_entry
             try:
-                # send_message(self.bot, log_entry)
-                # этот вариант не проходит тесты,
-                # поэтому вот, лучше не придумала:
                 self.bot.send_message(TELEGRAM_CHAT_ID, log_entry)
             except Exception:
                 super().emit(log_entry)
@@ -165,12 +164,13 @@ class TelegramHandler(logging.StreamHandler):
 def main():
     """Main bot logic."""
     logger.setLevel(logging.DEBUG)
-    stream__handler = logging.StreamHandler()
-    stream__handler.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(asctime)s [%(levelname)s] %(message)s')
-    stream__handler.setFormatter(formatter)
-    logger.addHandler(stream__handler)
-
+    logging.basicConfig(
+        format=(
+        '\n[%(levelname)s] %(asctime)s  - '
+        '(%(filename)s).%(funcName)s:%(lineno)d. %(message)s'),
+        level=logging.DEBUG,
+        handlers=[logging.StreamHandler()]
+    )
     if not check_tokens():
         raise TokenNotFoundExeption
 
@@ -180,7 +180,7 @@ def main():
 
     tg_handler = TelegramHandler(bot)
     tg_handler.setLevel(logging.ERROR)
-    tg_handler.setFormatter(formatter)
+    # tg_handler.setFormatter(formatter)
     logger.addHandler(tg_handler)
 
     messages_log = set()
@@ -200,12 +200,6 @@ def main():
                         messages_log.add(message)
                 if len(messages_log) == total_messages:
                     logger.debug("No new homework statuses.")
-
-                # if len(response.get('homeworks')) == 0:
-                #     logger.debug("No new homework statuses.")
-                # for homework in response.get('homeworks'):
-                #     message = parse_status(homework)
-                #     send_message(bot, message)
         except Exception as error:
             message = f'Сбой в работе программы: {error}'
             logger.error(message)
