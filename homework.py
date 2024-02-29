@@ -26,7 +26,9 @@ TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID')
 
 RETRY_PERIOD = 600
+# To test how bot works set START_PERIOD longer:
 START_PERIOD = 24 * 60 * 60
+
 ENDPOINT = 'https://practicum.yandex.ru/api/user_api/homework_statuses/'
 TELEGRAM_ENDPOINT = (f'https://api.telegram.org/'
                      f'bot{TELEGRAM_TOKEN}/getChat?chat_id={TELEGRAM_CHAT_ID}')
